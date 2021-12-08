@@ -6,6 +6,7 @@ import benchmark.BenchmarkRunner;
 /**
  * Class to show how to use the Benchmark framework proposed by this project.
  */
+@SuppressWarnings({"ResultOfMethodCallIgnored", "UnusedReturnValue"})   // illustrative examples
 public class Main {
 
     /**
@@ -42,5 +43,41 @@ public class Main {
             sum += i;
         }
         System.out.println("The sum is: " + sum);
+    }
+
+    /**
+     * Sample method to be benchmarked which computes and prints the sum 1+2+...+9+10.
+     * Only 5 iterations performed for statistics.
+     */
+    @Benchmark(iterations = 5)
+    static void sumFirst10PositiveIntegersWith5Iterations() { // NOTE: must be static method without parameters.
+        sumFirst10PositiveIntegers();
+    }
+
+    /**
+     * Sample method to be benchmarked which computes and prints the sum 1+2+...+9+10.
+     * No warmup iterations in benchmark.
+     */
+    @Benchmark(warmUpIterations = 0)
+    static void sumFirst10PositiveIntegersWithoutWarmupIterations() { // NOTE: must be static method without parameters.
+        sumFirst10PositiveIntegers();
+    }
+
+    /**
+     * Sample method to be benchmarked which computes and prints the sum 1+2+...+9+10.
+     * No teardown iterations in benchmark.
+     */
+    @Benchmark(tearDownIterations = 0)
+    static void sumFirst10PositiveIntegersWithoutTeardownIterations() { // NOTE: must be static method without parameters.
+        sumFirst10PositiveIntegers();
+    }
+
+    /**
+     * Sample method to be benchmarked which computes and prints the sum 1+2+...+9+10.
+     * No teardown iterations in benchmark.
+     */
+    @Benchmark(warmUpIterations = 1, iterations = 2, tearDownIterations = 3)
+    static void sumFirst10PositiveIntegersWithSpecifiedNumberOfIterations() { // NOTE: must be static method without parameters.
+        sumFirst10PositiveIntegers();
     }
 }

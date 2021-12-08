@@ -33,15 +33,15 @@ public class BenchmarkInstance implements Comparable<BenchmarkInstance> {
     /**
      * Number of warm up iterations, excluded from statistics.
      */
-    private static final int warmUpIterationsExcludedFromBenchmarkStatistics = 1000;
+    private final int warmUpIterationsExcludedFromBenchmarkStatistics;
     /**
      * Number of iterations for statistics.
      */
-    private static final int iterationsOfTest = 1000;
+    private final int iterationsOfTest;
     /**
      * Number of tear down iterations, excluded from statistics.
      */
-    private static final int tearDownIterationsExcludedFromBenchmarkStatistics = 1000;
+    private final int tearDownIterationsExcludedFromBenchmarkStatistics;
     /**
      * Duration of the fastest execution.
      */
@@ -66,6 +66,16 @@ public class BenchmarkInstance implements Comparable<BenchmarkInstance> {
     public BenchmarkInstance(Method methodToBenchmark) throws InvocationTargetException, IllegalAccessException {
         testStartedAt = Instant.now();
         testedMethod = Objects.requireNonNull(methodToBenchmark);
+
+        warmUpIterationsExcludedFromBenchmarkStatistics = methodToBenchmark.getAnnotation(Benchmark.class).warmUpIterations();
+        iterationsOfTest = methodToBenchmark.getAnnotation(Benchmark.class).iterations();
+        tearDownIterationsExcludedFromBenchmarkStatistics = methodToBenchmark.getAnnotation(Benchmark.class).tearDownIterations();
+        if (warmUpIterationsExcludedFromBenchmarkStatistics < 0
+                || iterationsOfTest < 0
+                || tearDownIterationsExcludedFromBenchmarkStatistics < 0) {
+            throw new IllegalArgumentException("Number of iterations cannot be negative.");
+        }
+
         List<Long> executionTimesInNanos = benchmarkAndGetExecutionTimesForStatistics(methodToBenchmark);
         durationOfFastestExecutionInNanoseconds = executionTimesInNanos.stream().reduce((a, b) -> a < b ? a : b).orElseThrow(NoSuchElementException::new);
         durationOfSlowestExecutionInNanoseconds = executionTimesInNanos.stream().reduce((a, b) -> a > b ? a : b).orElseThrow(NoSuchElementException::new);
@@ -102,7 +112,7 @@ public class BenchmarkInstance implements Comparable<BenchmarkInstance> {
      * @throws InvocationTargetException If errors occur when invoking the method.
      * @throws IllegalAccessException    If errors occur when invoking the method.
      */
-    private static List<Long> benchmarkAndGetExecutionTimesForStatistics(Method methodToBenchmark)
+    private List<Long> benchmarkAndGetExecutionTimesForStatistics(Method methodToBenchmark)
             throws InvocationTargetException, IllegalAccessException {
         PrintStream realStdOut = System.out;
         PrintStream realStdErr = System.err;
