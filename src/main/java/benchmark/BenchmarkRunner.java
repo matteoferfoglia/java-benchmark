@@ -42,9 +42,10 @@ public class BenchmarkRunner {
                         .mapToObj(i -> "\t" + (i + 1) + ")\t" + results.get(i).getTestedMethod())
                         .collect(Collectors.joining(System.lineSeparator())) + System.lineSeparator() + System.lineSeparator() +
                 "-----------------------------------------------------------------------------------" + System.lineSeparator() +
-                results.stream().sequential()
-                        .map(result -> System.lineSeparator() + result.toString())
-                        .collect(Collectors.joining());
+                IntStream.range(0, results.size())
+                        .sequential()
+                        .mapToObj(i -> System.lineSeparator() + (i+1) + ") " + results.get(i).toString())
+                        .collect(Collectors.joining(System.lineSeparator()));
     }
 
     /**

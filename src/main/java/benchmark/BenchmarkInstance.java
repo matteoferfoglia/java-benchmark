@@ -85,8 +85,7 @@ public class BenchmarkInstance implements Comparable<BenchmarkInstance> {
 
     @Override
     public String toString() {
-        return System.lineSeparator()
-                + "BENCHMARK SUMMARY" + System.lineSeparator() + "\t"
+        return "BENCHMARK SUMMARY" + System.lineSeparator() + "\t"
                 + Arrays.stream(getClass().getDeclaredFields())
                 .peek(field -> field.setAccessible(true))
                 .map(field -> {
