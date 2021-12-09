@@ -1,5 +1,7 @@
 package benchmark;
 
+import org.jetbrains.annotations.NotNull;
+
 import java.io.File;
 import java.io.IOException;
 import java.lang.annotation.Annotation;
@@ -44,7 +46,7 @@ public class BenchmarkRunner {
                 "-----------------------------------------------------------------------------------" + System.lineSeparator() +
                 IntStream.range(0, results.size())
                         .sequential()
-                        .mapToObj(i -> System.lineSeparator() + (i+1) + ") " + results.get(i).toString())
+                        .mapToObj(i -> System.lineSeparator() + (i + 1) + ") " + results.get(i).toString())
                         .collect(Collectors.joining(System.lineSeparator()));
     }
 
@@ -114,7 +116,7 @@ public class BenchmarkRunner {
      * @param e The throwable instance to be logged.
      */
     private static void logSevereInLoggerOfThisClass(final Throwable e) {
-        logSevereInLoggerOfThisClass(e, e.getMessage());
+        logSevereInLoggerOfThisClass(e, e.getMessage() == null ? "" : e.getMessage());
     }
 
     /**
@@ -123,9 +125,15 @@ public class BenchmarkRunner {
      * @param e            The throwable instance to be logged.
      * @param errorMessage The custom error message to log.
      */
-    private static void logSevereInLoggerOfThisClass(final Throwable e, final String errorMessage) {
+    private static void logSevereInLoggerOfThisClass(@NotNull final Throwable e, @NotNull final String errorMessage) {
         LOGGER_OF_THIS_CLASS.log(
-                Level.SEVERE, Objects.requireNonNull(errorMessage), Objects.requireNonNull(e));
+                Level.SEVERE, Objects.requireNonNull(errorMessage) +
+                        System.lineSeparator() +
+                        Arrays.stream(Objects.requireNonNull(e).getStackTrace())
+                                .map(StackTraceElement::toString)
+                                .map(string -> "\t" + string)
+                                .collect(Collectors.joining(System.lineSeparator())),
+                e);
     }
 
     /**
@@ -175,7 +183,7 @@ public class BenchmarkRunner {
      *
      * @param directory The base directory
      * @return {@link List} of classes
-     * @throws IOException            if I/O errors occur.
+     * @throws IOException if I/O errors occur.
      */
     private static List<Class<?>> findClasses(File directory) throws IOException {
         List<Class<?>> classes = new ArrayList<>();
