@@ -80,4 +80,13 @@ public class Main {
     static void sumFirst10PositiveIntegersWithSpecifiedNumberOfIterations() { // NOTE: must be static method without parameters.
         sumFirst10PositiveIntegers();
     }
+
+    /**
+     * Like {@link #sumFirst10PositiveIntegersWithSpecifiedNumberOfIterations()},
+     * but with a comment to report in the benchmark result.
+     */
+    @Benchmark(warmUpIterations = 1, iterations = 2, tearDownIterations = 3, commentToReport = "This is a comment")
+    static void sumFirst10PositiveIntegersWithSpecifiedNumberOfIterationsWithAComment() { // NOTE: must be static method without parameters.
+        sumFirst10PositiveIntegers();
+    }
 }

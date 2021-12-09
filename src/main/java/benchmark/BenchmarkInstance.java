@@ -4,10 +4,12 @@ import utils.StringUtility;
 
 import java.io.ByteArrayOutputStream;
 import java.io.PrintStream;
+import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.time.Instant;
 import java.util.*;
+import java.util.function.Predicate;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.stream.Collectors;
@@ -54,7 +56,10 @@ public class BenchmarkInstance implements Comparable<BenchmarkInstance> {
      * Average duration of each execution.
      */
     private final long averageDurationOfEachExecutionInNanoseconds;
-
+    /**
+     * Comment to print in the report of this instance.
+     */
+    private final String commentToReport;
 
     /**
      * Constructor.
@@ -66,15 +71,17 @@ public class BenchmarkInstance implements Comparable<BenchmarkInstance> {
     public BenchmarkInstance(Method methodToBenchmark) throws InvocationTargetException, IllegalAccessException {
         testStartedAt = Instant.now();
         testedMethod = Objects.requireNonNull(methodToBenchmark);
+        Benchmark annotationOfMethod = methodToBenchmark.getAnnotation(Benchmark.class);
 
-        warmUpIterationsExcludedFromBenchmarkStatistics = methodToBenchmark.getAnnotation(Benchmark.class).warmUpIterations();
-        iterationsOfTest = methodToBenchmark.getAnnotation(Benchmark.class).iterations();
-        tearDownIterationsExcludedFromBenchmarkStatistics = methodToBenchmark.getAnnotation(Benchmark.class).tearDownIterations();
+        warmUpIterationsExcludedFromBenchmarkStatistics = annotationOfMethod.warmUpIterations();
+        iterationsOfTest = annotationOfMethod.iterations();
+        tearDownIterationsExcludedFromBenchmarkStatistics = annotationOfMethod.tearDownIterations();
         if (warmUpIterationsExcludedFromBenchmarkStatistics < 0
                 || iterationsOfTest < 0
                 || tearDownIterationsExcludedFromBenchmarkStatistics < 0) {
             throw new IllegalArgumentException("Number of iterations cannot be negative.");
         }
+        commentToReport = annotationOfMethod.commentToReport().length() > 0 ? annotationOfMethod.commentToReport() : null;
 
         List<Long> executionTimesInNanos = benchmarkAndGetExecutionTimesForStatistics(methodToBenchmark);
         durationOfFastestExecutionInNanoseconds = executionTimesInNanos.stream().reduce((a, b) -> a < b ? a : b).orElseThrow(NoSuchElementException::new);
@@ -85,9 +92,17 @@ public class BenchmarkInstance implements Comparable<BenchmarkInstance> {
 
     @Override
     public String toString() {
+        Predicate<Field> fieldWithNonNullValue = field -> {
+            try {
+                return field.get(this) != null;
+            } catch (IllegalAccessException e) {
+                return false;
+            }
+        };
         return "BENCHMARK SUMMARY" + System.lineSeparator() + "\t"
                 + Arrays.stream(getClass().getDeclaredFields())
                 .peek(field -> field.setAccessible(true))
+                .filter(fieldWithNonNullValue)
                 .map(field -> {
                     try {
                         String fieldNameHumanReadable = StringUtility.toUpperCaseOnlyTheFirstChar(
