@@ -24,9 +24,10 @@ import java.util.stream.IntStream;
 public class BenchmarkRunner {
 
     /**
-     * List of benchmark results, initialized after benchmark tests execution.
+     * List of benchmark results.
      */
-    private List<BenchmarkInstance> results;
+    private List<BenchmarkInstance> results = new ArrayList<>();    // initialized to empty list
+
     /**
      * {@link Instant} at which this test started (not created, but started).
      */
