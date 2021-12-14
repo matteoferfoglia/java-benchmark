@@ -1,6 +1,7 @@
 package benchmark;
 
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 import java.io.File;
 import java.io.IOException;
@@ -31,24 +32,34 @@ public class BenchmarkRunner {
     /**
      * {@link Instant} at which this test started (not created, but started).
      */
-    private Instant startTimeOfTests;
+    private Instant startTimeOfTests;   // null if tests is not started
+
+    /**
+     * @return true if this instance of test is started, false otherwise.
+     */
+    private boolean isTestStarted() {
+        return startTimeOfTests != null;
+    }
 
     @Override
     public String toString() {
         return "===================================================================================" + System.lineSeparator() +
                 "====================             BENCHMARK SUMMARY             ====================" + System.lineSeparator() +
                 "===================================================================================" + System.lineSeparator() + System.lineSeparator() +
-                results.size() + " methods benchmarked" + System.lineSeparator() + System.lineSeparator() +
-                "Test started at: " + startTimeOfTests + System.lineSeparator() + System.lineSeparator() +
-                "Benchmarked method" + (results.size() > 1 ? "s" : "") + ": " + System.lineSeparator() +
-                IntStream.range(0, results.size())
-                        .mapToObj(i -> "\t" + (i + 1) + ")\t" + results.get(i).getTestedMethod())
-                        .collect(Collectors.joining(System.lineSeparator())) + System.lineSeparator() + System.lineSeparator() +
-                "-----------------------------------------------------------------------------------" + System.lineSeparator() +
-                IntStream.range(0, results.size())
-                        .sequential()
-                        .mapToObj(i -> System.lineSeparator() + (i + 1) + ") " + results.get(i).toString())
-                        .collect(Collectors.joining(System.lineSeparator()));
+
+                (isTestStarted() ?
+                        results.size() + " methods benchmarked" + System.lineSeparator() + System.lineSeparator() +
+                                "Test started at: " + startTimeOfTests + System.lineSeparator() + System.lineSeparator() +
+                                "Benchmarked method" + (results.size() > 1 ? "s" : "") + ": " + System.lineSeparator() +
+                                IntStream.range(0, results.size())
+                                        .mapToObj(i -> "\t" + (i + 1) + ")\t" + results.get(i).getTestedMethod())
+                                        .collect(Collectors.joining(System.lineSeparator())) + System.lineSeparator() + System.lineSeparator() +
+                                "-----------------------------------------------------------------------------------" + System.lineSeparator() +
+                                IntStream.range(0, results.size())
+                                        .sequential()
+                                        .mapToObj(i -> System.lineSeparator() + (i + 1) + ") " + results.get(i).toString())
+                                        .collect(Collectors.joining(System.lineSeparator())) :
+                        "No test performed.");
     }
 
     /**
