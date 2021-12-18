@@ -1,5 +1,7 @@
 package benchmark;
 
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 import utils.StringUtility;
 
 import java.io.ByteArrayOutputStream;
@@ -67,8 +69,13 @@ public class BenchmarkInstance implements Comparable<BenchmarkInstance> {
      * @param methodToBenchmark The method to be benchmarked.
      * @throws InvocationTargetException If errors occur when invoking the method.
      * @throws IllegalAccessException    If errors occur when invoking the method.
+     * @throws ClassNotFoundException    If the class containing the method (including
+     *                                   the methods to be executed before and after
+     *                                   each iteration) is not found.
+     * @throws NoSuchMethodException     If the method (including the methods to be executed
+     *                                   before and after each iteration) is not found.
      */
-    public BenchmarkInstance(Method methodToBenchmark) throws InvocationTargetException, IllegalAccessException {
+    public BenchmarkInstance(Method methodToBenchmark) throws InvocationTargetException, IllegalAccessException, ClassNotFoundException, NoSuchMethodException {
         testStartedAt = Instant.now();
         testedMethod = Objects.requireNonNull(methodToBenchmark);
         Benchmark annotationOfMethod = methodToBenchmark.getAnnotation(Benchmark.class);
@@ -83,11 +90,42 @@ public class BenchmarkInstance implements Comparable<BenchmarkInstance> {
         }
         commentToReport = annotationOfMethod.commentToReport().length() > 0 ? annotationOfMethod.commentToReport() : null;
 
-        List<Long> executionTimesInNanos = benchmarkAndGetExecutionTimesForStatistics(methodToBenchmark);
+        @Nullable
+        Method toBeExecutedBeforeEachIteration = getMethodFromName(annotationOfMethod.beforeEach());
+        @Nullable
+        Method toBeExecutedAfterEachIteration = getMethodFromName(annotationOfMethod.afterEach());
+
+        List<Long> executionTimesInNanos = benchmarkAndGetExecutionTimesForStatistics(
+                methodToBenchmark, toBeExecutedBeforeEachIteration, toBeExecutedAfterEachIteration);
+
         durationOfFastestExecutionInNanoseconds = executionTimesInNanos.stream().reduce((a, b) -> a < b ? a : b).orElseThrow(NoSuchElementException::new);
         durationOfSlowestExecutionInNanoseconds = executionTimesInNanos.stream().reduce((a, b) -> a > b ? a : b).orElseThrow(NoSuchElementException::new);
         averageDurationOfEachExecutionInNanoseconds = executionTimesInNanos.stream().reduce(Long::sum).orElseThrow(NoSuchElementException::new) / executionTimesInNanos.size();
         testEndedAt = Instant.now();
+    }
+
+    /**
+     * @param methodName The canonical name of a method, starting with the class name
+     *                   and without neither parenthesis nor return type nor parameters.
+     * @return the {@link Method} or null if the input parameter is blank.
+     * The eventually non-null returned method is already made accessible (e.g., in case of
+     * private methods).
+     * @throws ClassNotFoundException If there are problems with the class name.
+     * @throws NoSuchMethodException  If the specified method name is not blank but does not exist.
+     */
+    @Nullable
+    private Method getMethodFromName(String methodName) throws ClassNotFoundException, NoSuchMethodException {
+        @Nullable Method methodToBeInvokedBeforeEachIteration;
+        if (methodName.trim().length() > 0) {
+            Class<?> classContainingTheMethod = Class.forName(methodName
+                    .substring(0, methodName.lastIndexOf('.')));
+            Method method = classContainingTheMethod
+                    .getDeclaredMethod(methodName.substring(methodName.lastIndexOf('.') + 1/*method name starts with the character next to the last dot*/));
+            method.setAccessible(true);
+            return method;
+        } else {
+            return null;
+        }
     }
 
     @Override
@@ -121,12 +159,15 @@ public class BenchmarkInstance implements Comparable<BenchmarkInstance> {
      * Perform the benchmark tests.
      *
      * @param methodToBenchmark The method to be benchmarked.
+     * @param beforeEach        The method to be executed before each iteration or null if no methods has to be executed.
+     * @param afterEach         The method to be executed after each iteration or null if no methods has to be executed.
      * @return The list of execution times (in nanoseconds) valid for benchmark statistics
      * (warmup and teardown iterations are excluded)
      * @throws InvocationTargetException If errors occur when invoking the method.
      * @throws IllegalAccessException    If errors occur when invoking the method.
      */
-    private List<Long> benchmarkAndGetExecutionTimesForStatistics(Method methodToBenchmark)
+    private List<Long> benchmarkAndGetExecutionTimesForStatistics(
+            @NotNull Method methodToBenchmark, @Nullable Method beforeEach, @Nullable Method afterEach)
             throws InvocationTargetException, IllegalAccessException {
         PrintStream realStdOut = System.out;
         PrintStream realStdErr = System.err;
@@ -137,10 +178,16 @@ public class BenchmarkInstance implements Comparable<BenchmarkInstance> {
         long endTime;
         try {
             for (int i = 0; i < warmUpIterationsExcludedFromBenchmarkStatistics + iterationsOfTest + tearDownIterationsExcludedFromBenchmarkStatistics; i++) {
+                if (beforeEach != null) {
+                    beforeEach.invoke(null);
+                }
                 startTime = System.nanoTime();
                 methodToBenchmark.invoke(null);
                 endTime = System.nanoTime();
                 executionTimesInNanoseconds.add(endTime - startTime);
+                if (afterEach != null) {
+                    afterEach.invoke(null);
+                }
             }
         } finally {
             System.setOut(realStdOut); // restore stdout

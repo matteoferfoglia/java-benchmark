@@ -10,13 +10,26 @@ import benchmark.BenchmarkRunner;
 public class Main {
 
     /**
+     * Counters used for examples.
+     */
+    private static int counterBeforeEachForExamples = 0;
+
+    /**
+     * Counters used for examples.
+     */
+    private static int counterAfterEachForExamples = 0;
+
+    /**
      * Main methods used to show how to use this benchmarking framework.
+     *
      * @param args Command line arguments.
      */
     public static void main(String[] args) {
         BenchmarkRunner benchmarkRunner = new BenchmarkRunner();
         benchmarkRunner.benchmarkAllAnnotatedMethodsAndGetListOfResults();
         System.out.println(benchmarkRunner);
+        System.out.println("Counter before each:" + counterBeforeEachForExamples);
+        System.out.println("Counter after each:" + counterAfterEachForExamples);
     }
 
     /**
@@ -44,6 +57,31 @@ public class Main {
         }
         System.out.println("The sum is: " + sum);
     }
+
+    /**
+     * Example of method to be executed before each iteration.
+     */
+    private static void beforeEachIterationExample() {
+        counterBeforeEachForExamples++;
+    }
+
+    /**
+     * Example of method to be executed before each iteration.
+     */
+    private static void afterEachIterationExample() {
+        counterAfterEachForExamples++;
+    }
+
+    /**
+     * Sample method to be benchmarked which computes and prints the sum 1+2+...+9+10.
+     * Actions to be performed before each iteration and after each iteration are specified.
+     * <strong>Note</strong> the class name follows the package name.
+     */
+    @Benchmark(beforeEach = "examples.Main.beforeEachIterationExample", afterEach = "examples.Main.afterEachIterationExample")
+    static void sumFirst10PositiveIntegersWithBeforeEachAndAfterEachActions() { // NOTE: must be static method without parameters.
+        sumFirst10PositiveIntegers();
+    }
+
 
     /**
      * Sample method to be benchmarked which computes and prints the sum 1+2+...+9+10.

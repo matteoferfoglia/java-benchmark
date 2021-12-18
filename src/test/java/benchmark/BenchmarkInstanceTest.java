@@ -14,7 +14,7 @@ class BenchmarkInstanceTest {
     private BenchmarkInstance benchmarkInstance;
 
     @BeforeEach
-    void setUp() throws NoSuchMethodException, InvocationTargetException, IllegalAccessException {
+    void setUp() throws NoSuchMethodException, InvocationTargetException, IllegalAccessException, ClassNotFoundException {
         ByteArrayOutputStream fakeStdOut = new ByteArrayOutputStream();
         System.setOut(new PrintStream(fakeStdOut));
         benchmarkInstance = new BenchmarkInstance(

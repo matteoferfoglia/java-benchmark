@@ -34,4 +34,18 @@ public @interface Benchmark {
      * @return comment which should appear in the benchmark report.
      */
     String commentToReport() default "";
+
+    /**
+     * @return the static method name (without parameters) to be executed before each iteration.
+     * The canonical name, starting with the class name and without neither parenthesis nor
+     * return type nor parameters, is provided.
+     */
+    String beforeEach() default "";
+
+    /**
+     * @return the static method name (without parameters) to be executed after each iteration.
+     * The canonical name, starting with the class name and without neither parenthesis nor
+     * return type nor parameters, is provided.
+     */
+    String afterEach() default "";
 }

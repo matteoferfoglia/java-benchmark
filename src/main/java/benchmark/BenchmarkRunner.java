@@ -80,6 +80,13 @@ public class BenchmarkRunner {
             "Methods with parameters are not allowed for benchmarking.";
 
     /**
+     * The error message showed when there are problems with the methods to be executed
+     * before/after each iteration.
+     */
+    private static final String ERROR_MESSAGE_IF_PROBLEMS_WITH_METHODS_TO_BE_EXECUTED_BEFORE_OR_AFTER_EACH_ITERATION =
+            "Problems with methods to be executed before or after each iteration.";
+
+    /**
      * Benchmarks all methods in the project annotated with {@link Benchmark}.
      *
      * @return The list with results.
@@ -101,6 +108,10 @@ public class BenchmarkRunner {
                         } catch (IllegalArgumentException e) {
                             eventuallyThrown = e;
                             eventuallyErrorMessage.append(ERROR_MESSAGE_IF_TRYING_TO_BENCHMARK_METHOD_WITH_PARAM);
+                            return null;
+                        } catch (ClassNotFoundException | NoSuchMethodException e) {
+                            eventuallyThrown = e;
+                            eventuallyErrorMessage.append(ERROR_MESSAGE_IF_PROBLEMS_WITH_METHODS_TO_BE_EXECUTED_BEFORE_OR_AFTER_EACH_ITERATION);
                             return null;
                         } finally {
                             if (eventuallyThrown != null) {
