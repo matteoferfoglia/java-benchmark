@@ -30,6 +30,14 @@ public class Main {
         System.out.println(benchmarkRunner);
         System.out.println("Counter before each:" + counterBeforeEachForExamples);
         System.out.println("Counter after each:" + counterAfterEachForExamples);
+
+        System.out.println(System.lineSeparator() +
+                "===================================================================================" +
+                System.lineSeparator());
+
+        BenchmarkRunner benchmarkRunnerWithProgressPrintedToStdOut = new BenchmarkRunner(true);
+        benchmarkRunnerWithProgressPrintedToStdOut.benchmarkAllAnnotatedMethodsAndGetListOfResults();
+        System.out.println(benchmarkRunnerWithProgressPrintedToStdOut);
     }
 
     /**

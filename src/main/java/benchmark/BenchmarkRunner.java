@@ -7,11 +7,13 @@ import java.io.IOException;
 import java.lang.annotation.Annotation;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.stream.Collectors;
@@ -24,112 +26,61 @@ import java.util.stream.IntStream;
 public class BenchmarkRunner {
 
     /**
-     * List of benchmark results.
-     */
-    private List<BenchmarkInstance> results = new ArrayList<>();    // initialized to empty list
-
-    /**
-     * {@link Instant} at which this test started (not created, but started).
-     */
-    private Instant startTimeOfTests;   // null if tests is not started
-
-    /**
-     * @return true if this instance of test is started, false otherwise.
-     */
-    private boolean isTestStarted() {
-        return startTimeOfTests != null;
-    }
-
-    @Override
-    public String toString() {
-        return "===================================================================================" + System.lineSeparator() +
-                "====================             BENCHMARK SUMMARY             ====================" + System.lineSeparator() +
-                "===================================================================================" + System.lineSeparator() + System.lineSeparator() +
-
-                (isTestStarted() ?
-                        results.size() + " methods benchmarked" + System.lineSeparator() + System.lineSeparator() +
-                                "Test started at: " + startTimeOfTests + System.lineSeparator() + System.lineSeparator() +
-                                "Benchmarked method" + (results.size() > 1 ? "s" : "") + ": " + System.lineSeparator() +
-                                IntStream.range(0, results.size())
-                                        .mapToObj(i -> "\t" + (i + 1) + ")\t" + results.get(i).getTestedMethod())
-                                        .collect(Collectors.joining(System.lineSeparator())) + System.lineSeparator() + System.lineSeparator() +
-                                "-----------------------------------------------------------------------------------" + System.lineSeparator() +
-                                IntStream.range(0, results.size())
-                                        .sequential()
-                                        .mapToObj(i -> System.lineSeparator() + (i + 1) + ") " + results.get(i).toString())
-                                        .collect(Collectors.joining(System.lineSeparator())) :
-                        "No test performed.");
-    }
-
-    /**
      * The {@link Logger} of current class.
      */
     private static final Logger LOGGER_OF_THIS_CLASS =
             Logger.getLogger(BenchmarkRunner.class.getCanonicalName());
-
     /**
      * The error message showed when trying to benchmark a non-static method.
      */
     private static final String ERROR_MESSAGE_IF_TRYING_TO_BENCHMARK_NOT_STATIC_METHOD =
             "Only static methods allowed for benchmarking.";
-
     /**
      * The error message showed when trying to benchmark a method with parameters.
      */
     private static final String ERROR_MESSAGE_IF_TRYING_TO_BENCHMARK_METHOD_WITH_PARAM =
             "Methods with parameters are not allowed for benchmarking.";
-
     /**
      * The error message showed when there are problems with the methods to be executed
      * before/after each iteration.
      */
     private static final String ERROR_MESSAGE_IF_PROBLEMS_WITH_METHODS_TO_BE_EXECUTED_BEFORE_OR_AFTER_EACH_ITERATION =
             "Problems with methods to be executed before or after each iteration.";
+    /**
+     * Flag set to true if the progress of benchmarking must be printed
+     * to {@link System#out}, false otherwise. Default value is false.
+     */
+    private final boolean printProgress;
+    /**
+     * List of benchmark results.
+     */
+    private List<BenchmarkInstance> results = new ArrayList<>();    // initialized to empty list
+    /**
+     * {@link Instant} at which this test started (not created, but started).
+     */
+    private Instant startTimeOfTests;   // null if test is not started
+    /**
+     * {@link Instant} at which this test ended.
+     */
+    private Instant endTimeOfTests;   // null if test is not ended
 
     /**
-     * Benchmarks all methods in the project annotated with {@link Benchmark}.
-     *
-     * @return The list with results.
+     * Default constructor. Progress of benchmarking will not be printed
+     * to {@link System#out}.
+     * See {@link #BenchmarkRunner(boolean)}.
      */
-    public List<BenchmarkInstance> benchmarkAllAnnotatedMethodsAndGetListOfResults() {
-        startTimeOfTests = Instant.now();
-        results = getAllMethodsWithAnnotationInPackage(Benchmark.class)
-                .stream()
-                .map(method -> {
-                    Throwable eventuallyThrown = null;
-                    StringBuilder eventuallyErrorMessage = new StringBuilder();
-                    try {
-                        try {
-                            return new BenchmarkInstance(method);
-                        } catch (NullPointerException e) {
-                            eventuallyThrown = e;
-                            eventuallyErrorMessage.append(ERROR_MESSAGE_IF_TRYING_TO_BENCHMARK_NOT_STATIC_METHOD);
-                            return null;
-                        } catch (IllegalArgumentException e) {
-                            eventuallyThrown = e;
-                            eventuallyErrorMessage.append(ERROR_MESSAGE_IF_TRYING_TO_BENCHMARK_METHOD_WITH_PARAM);
-                            return null;
-                        } catch (ClassNotFoundException | NoSuchMethodException e) {
-                            eventuallyThrown = e;
-                            eventuallyErrorMessage.append(ERROR_MESSAGE_IF_PROBLEMS_WITH_METHODS_TO_BE_EXECUTED_BEFORE_OR_AFTER_EACH_ITERATION);
-                            return null;
-                        } finally {
-                            if (eventuallyThrown != null) {
-                                System.err.println(eventuallyErrorMessage
-                                        .append(System.lineSeparator())
-                                        .append("\tInvalid method: ")
-                                        .append(method));
-                            }
-                        }
-                    } catch (IllegalAccessException | InvocationTargetException e) {
-                        logSevereInLoggerOfThisClass(e);
-                        return null;
-                    }
-                })
-                .filter(Objects::nonNull)
-                .sorted()
-                .collect(Collectors.toList());
-        return results;
+    public BenchmarkRunner() {
+        this(false);
+    }
+
+    /**
+     * Constructor.
+     *
+     * @param printProgress true if the progress of benchmarking must be printed
+     *                      to {@link System#out}, false otherwise.
+     */
+    public BenchmarkRunner(boolean printProgress) {
+        this.printProgress = printProgress;
     }
 
     /**
@@ -239,6 +190,145 @@ public class BenchmarkRunner {
             }
         }
         return classes;
+    }
+
+    /**
+     * @return true if this instance of test is started, false otherwise.
+     */
+    private boolean isTestStarted() {
+        return startTimeOfTests != null;
+    }
+
+    /**
+     * @return true if this instance of test is ended, false otherwise.
+     */
+    private boolean isTestEnded() {
+        return endTimeOfTests != null;
+    }
+
+    /**
+     * @return true if this instance of test is started, false otherwise.
+     * @throws IllegalStateException if test is not started or ended.
+     */
+    private String getTestDuration() {
+        if (!isTestStarted()) {
+            throw new IllegalStateException("Test not started.");
+        }
+        if (!isTestEnded()) {
+            throw new IllegalStateException("Test not ended.");
+        }
+        Duration duration = Duration.between(startTimeOfTests, endTimeOfTests);
+        long totalDurationInMilliseconds = duration.toMillis();
+
+        // conversion to HH mm ss millis
+        final double HOURS_TO_MILLIS_FACTOR = 60 * 60 * 1000.0;
+        final double MINUTES_TO_MILLIS_FACTOR = 60 * 1000.0;
+        final double SECONDS_TO_MILLIS_FACTOR = 1000.0;
+        long remainingMillis = totalDurationInMilliseconds;
+        final long HOURS = (long) (remainingMillis / HOURS_TO_MILLIS_FACTOR);
+        remainingMillis -= HOURS * HOURS_TO_MILLIS_FACTOR;
+        final long MINUTES = (long) (totalDurationInMilliseconds / MINUTES_TO_MILLIS_FACTOR);
+        remainingMillis -= MINUTES * MINUTES_TO_MILLIS_FACTOR;
+        final long SECONDS = (long) (remainingMillis / SECONDS_TO_MILLIS_FACTOR);
+        remainingMillis -= SECONDS * MINUTES_TO_MILLIS_FACTOR;
+        final long MILLIS = remainingMillis;
+        return HOURS + ":" + MINUTES + ":" + SECONDS + "." + MILLIS + "\t(HH:mm:ss.SSS)";
+    }
+
+    @Override
+    public String toString() {
+        return "===================================================================================" + System.lineSeparator() +
+                "====================             BENCHMARK SUMMARY             ====================" + System.lineSeparator() +
+                "===================================================================================" + System.lineSeparator() +
+                System.lineSeparator() +
+
+                (isTestStarted() ?
+                        results.size() + " methods benchmarked" + System.lineSeparator() + System.lineSeparator() +
+                                "Test started at:\t" + startTimeOfTests + System.lineSeparator() +
+                                "Test ended at:\t\t" + endTimeOfTests + System.lineSeparator() +
+                                "Test duration:\t\t" + getTestDuration() + System.lineSeparator() +
+                                System.lineSeparator() +
+                                "Benchmarked method" + (results.size() > 1 ? "s" : "") + ": " + System.lineSeparator() +
+                                IntStream.range(0, results.size())
+                                        .mapToObj(i -> "\t" + (i + 1) + ")\t" + results.get(i).getTestedMethod())
+                                        .collect(Collectors.joining(System.lineSeparator())) + System.lineSeparator() + System.lineSeparator() +
+                                "-----------------------------------------------------------------------------------" + System.lineSeparator() +
+                                IntStream.range(0, results.size())
+                                        .sequential()
+                                        .mapToObj(i -> System.lineSeparator() + (i + 1) + ") " + results.get(i).toString())
+                                        .collect(Collectors.joining(System.lineSeparator())) :
+                        "No test performed.");
+    }
+
+    /**
+     * Benchmarks all methods in the project annotated with {@link Benchmark}.
+     *
+     * @return The list with results.
+     */
+    public List<BenchmarkInstance> benchmarkAllAnnotatedMethodsAndGetListOfResults() {
+        final AtomicInteger currentNumberOfBenchmarkedMethods = new AtomicInteger(0);
+        final AtomicInteger currentPercentageOfProgressOfBenchmarks = new AtomicInteger(0); // 0..100
+        final int EPSILON = 1;  // min variation (included) to print progress
+        List<Method> methodsToBenchmark = getAllMethodsWithAnnotationInPackage(Benchmark.class);
+        final int NUM_OF_METHODS_TO_BENCHMARK = methodsToBenchmark.size();
+        if (printProgress) {
+            System.out.print("Progress: \t");
+        }
+        startTimeOfTests = Instant.now();
+        results = methodsToBenchmark
+                .stream().sequential()
+                .map(method -> {
+                    Throwable eventuallyThrown = null;
+                    StringBuilder eventuallyErrorMessage = new StringBuilder();
+                    try {
+                        try {
+                            return new BenchmarkInstance(method);
+                        } catch (NullPointerException e) {
+                            eventuallyThrown = e;
+                            eventuallyErrorMessage.append(ERROR_MESSAGE_IF_TRYING_TO_BENCHMARK_NOT_STATIC_METHOD);
+                            return null;
+                        } catch (IllegalArgumentException e) {
+                            eventuallyThrown = e;
+                            eventuallyErrorMessage.append(ERROR_MESSAGE_IF_TRYING_TO_BENCHMARK_METHOD_WITH_PARAM);
+                            return null;
+                        } catch (ClassNotFoundException | NoSuchMethodException e) {
+                            eventuallyThrown = e;
+                            eventuallyErrorMessage.append(ERROR_MESSAGE_IF_PROBLEMS_WITH_METHODS_TO_BE_EXECUTED_BEFORE_OR_AFTER_EACH_ITERATION);
+                            return null;
+                        } finally {
+                            if (eventuallyThrown != null) {
+                                System.err.println(eventuallyErrorMessage
+                                        .append(System.lineSeparator())
+                                        .append("\tInvalid method: ")
+                                        .append(method));
+                            }
+                        }
+                    } catch (IllegalAccessException | InvocationTargetException e) {
+                        logSevereInLoggerOfThisClass(e);
+                        return null;
+                    }
+                })
+                .peek(ignored -> {
+                            if (printProgress) {
+                                synchronized (currentPercentageOfProgressOfBenchmarks) {
+                                    int oldPercentage = currentPercentageOfProgressOfBenchmarks.get();
+                                    int currentPercentage = (int) Math.round(
+                                            100D * currentNumberOfBenchmarkedMethods.incrementAndGet() / NUM_OF_METHODS_TO_BENCHMARK);
+                                    currentPercentageOfProgressOfBenchmarks.set(currentPercentage);
+                                    if (currentPercentage - oldPercentage >= EPSILON)
+                                        System.out.print(" \t" + currentPercentage + "%");
+                                }
+                            }
+                        }
+                )
+                .filter(Objects::nonNull)
+                .sorted()
+                .collect(Collectors.toList());
+        endTimeOfTests = Instant.now();
+        if (printProgress) {
+            System.out.println(System.lineSeparator() + System.lineSeparator());
+        }
+        return results;
     }
 
 }
