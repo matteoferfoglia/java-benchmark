@@ -268,11 +268,11 @@ public class BenchmarkRunner {
     public List<BenchmarkInstance> benchmarkAllAnnotatedMethodsAndGetListOfResults() {
         final AtomicInteger currentNumberOfBenchmarkedMethods = new AtomicInteger(0);
         final AtomicInteger currentPercentageOfProgressOfBenchmarks = new AtomicInteger(0); // 0..100
-        final int EPSILON = 1;  // min variation (included) to print progress
+        final int EPSILON = 1;  // minimum variation (included) to print progress
         List<Method> methodsToBenchmark = getAllMethodsWithAnnotationInPackage(Benchmark.class);
         final int NUM_OF_METHODS_TO_BENCHMARK = methodsToBenchmark.size();
         if (printProgress) {
-            System.out.print("Progress: \t");
+            System.out.print("Progress: " + System.lineSeparator() + "\t0%");
         }
         startTimeOfTests = Instant.now();
         results = methodsToBenchmark
@@ -282,7 +282,7 @@ public class BenchmarkRunner {
                     StringBuilder eventuallyErrorMessage = new StringBuilder();
                     try {
                         try {
-                            return new BenchmarkInstance(method);
+                            return new BenchmarkInstance(method, printProgress ? System.out : null);
                         } catch (NullPointerException e) {
                             eventuallyThrown = e;
                             eventuallyErrorMessage.append(ERROR_MESSAGE_IF_TRYING_TO_BENCHMARK_NOT_STATIC_METHOD);

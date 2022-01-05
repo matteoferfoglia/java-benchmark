@@ -19,7 +19,8 @@ class BenchmarkInstanceTest {
         System.setOut(new PrintStream(fakeStdOut));
         benchmarkInstance = new BenchmarkInstance(
                 ClassWithDummyMethodsForTestingPurposes.class.getDeclaredMethod(
-                        ClassWithDummyMethodsForTestingPurposes.NAME_OF_PUBLIC_STATIC_METHOD_WITHOUT_PARAMETERS));
+                        ClassWithDummyMethodsForTestingPurposes.NAME_OF_PUBLIC_STATIC_METHOD_WITHOUT_PARAMETERS),
+                System.out);
     }
 
     @Test
