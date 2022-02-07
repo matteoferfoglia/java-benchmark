@@ -111,12 +111,13 @@ public class BenchmarkRunner {
 
     /**
      * @param annotation The class of the annotation.
-     * @return all methods in the given package annotated with the given annotation.
+     * @return all methods in the current project (accessible from the current
+     * context) annotated with the given annotation.
      */
-    private static List<Method> getAllMethodsWithAnnotationInPackage(
+    private static List<Method> getAllMethodsWithAnnotationInProject(
             Class<? extends Annotation> annotation) {
         return getAllClasses()
-                .stream().unordered().parallel()
+                .stream()
                 .flatMap(aClass -> Arrays.stream(aClass.getDeclaredMethods()))
                 .filter(method -> method.isAnnotationPresent(annotation))
                 .peek(method -> method.setAccessible(true))
@@ -269,7 +270,7 @@ public class BenchmarkRunner {
         final AtomicInteger currentNumberOfBenchmarkedMethods = new AtomicInteger(0);
         final AtomicInteger currentPercentageOfProgressOfBenchmarks = new AtomicInteger(0); // 0..100
         final int EPSILON = 1;  // minimum variation (included) to print progress
-        List<Method> methodsToBenchmark = getAllMethodsWithAnnotationInPackage(Benchmark.class);
+        List<Method> methodsToBenchmark = getAllMethodsWithAnnotationInProject(Benchmark.class);
         final int NUM_OF_METHODS_TO_BENCHMARK = methodsToBenchmark.size();
         if (printProgress) {
             System.out.print("Progress: " + System.lineSeparator() + "\t0%");

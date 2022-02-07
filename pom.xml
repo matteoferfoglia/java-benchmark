@@ -6,7 +6,7 @@
 
     <groupId>org.example</groupId>
     <artifactId>benchmark</artifactId>
-    <version>3.0-SNAPSHOT</version>
+    <version>3.1-SNAPSHOT</version>
 
     <name>Benchmark</name>
     <description>
