@@ -4,9 +4,7 @@ import org.jetbrains.annotations.NotNull;
 
 import java.io.File;
 import java.io.IOException;
-import java.lang.annotation.Annotation;
 import java.lang.reflect.InvocationTargetException;
-import java.lang.reflect.Method;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -110,36 +108,21 @@ public class BenchmarkRunner {
     }
 
     /**
-     * @param annotation The class of the annotation.
-     * @return all methods in the current project (accessible from the current
-     * context) annotated with the given annotation.
-     */
-    private static List<Method> getAllMethodsWithAnnotationInProject(
-            Class<? extends Annotation> annotation) {
-        return getAllClasses()
-                .stream()
-                .flatMap(aClass -> Arrays.stream(aClass.getDeclaredMethods()))
-                .filter(method -> method.isAnnotationPresent(annotation))
-                .peek(method -> method.setAccessible(true))
-                .collect(Collectors.toList());
-    }
-
-    /**
      * Scans all classes accessible from the context class loader which belong
      * to the given package and subpackages.
      *
      * @return The classes
      */
-    private static List<Class<?>> getAllClasses() {
-        List<Class<?>> classes = new ArrayList<>();
+    private static List<String> getAllClassNames() {
+        List<String> classNames = new ArrayList<>();
         for (File directory : Objects.requireNonNull(getRootDirectoryOfProject().listFiles())) {
             try {
-                classes.addAll(findClasses(directory));
+                classNames.addAll(findClassNames(directory));
             } catch (IOException e) {
                 logSevereInLoggerOfThisClass(e);
             }
         }
-        return classes;
+        return classNames;
     }
 
     /**
@@ -159,38 +142,38 @@ public class BenchmarkRunner {
      * @return {@link List} of classes
      * @throws IOException if I/O errors occur.
      */
-    private static List<Class<?>> findClasses(File directory) throws IOException {
-        List<Class<?>> classes = new ArrayList<>();
+    private static List<String> findClassNames(File directory) throws IOException {
+        List<String> classNames = new ArrayList<>();
         if (!directory.exists()) {
-            return classes;
+            return classNames;
         }
         final String rootOfProjectDirectoryOfClasses = getRootDirectoryOfProject().getCanonicalPath();
         String classExtension = ".class";
         if (directory.isDirectory()) {
             for (File file : Objects.requireNonNull(directory.listFiles())) {
-                classes.addAll(findClasses(file));
+                classNames.addAll(findClassNames(file));
             }
         } else {
             @SuppressWarnings("UnnecessaryLocalVariable") File file = directory;  // it is a file and not a directory
             if (file.getName().endsWith(classExtension) && !file.getName().startsWith("module-info")) {
                 try {
                     final String ESCAPED_FILE_SEPARATOR = "\\" + File.separator;    // correctly escaped
-                    classes.add(
+                    classNames.add(
                             Class.forName(
                                     file.getCanonicalPath()
                                             .substring(rootOfProjectDirectoryOfClasses.length() + 1,
                                                     file.getCanonicalPath().length() - classExtension.length())
                                             .replace("target" + File.separator + "classes" + File.separator, "")        // remove folder names till the project classes
                                             .replace("target" + File.separator + "test-classes" + File.separator, "")   // remove folder names till the project classes
-                                            .replaceAll(ESCAPED_FILE_SEPARATOR, ".")
-                            )
-                    );
+                                            .replaceAll(ESCAPED_FILE_SEPARATOR, "."),
+                                    false,  // if false: avoid expensive time-consuming class initialization (e.g., static blocks)
+                                    BenchmarkRunner.class.getClassLoader()
+                            ).getCanonicalName());
                 } catch (ClassNotFoundException ignored) {
-                    // When production classes try to use test classes
                 }
             }
         }
-        return classes;
+        return classNames;
     }
 
     /**
@@ -267,17 +250,22 @@ public class BenchmarkRunner {
      * @return The list with results.
      */
     public List<BenchmarkInstance> benchmarkAllAnnotatedMethodsAndGetListOfResults() {
-        final AtomicInteger currentNumberOfBenchmarkedMethods = new AtomicInteger(0);
-        final AtomicInteger currentPercentageOfProgressOfBenchmarks = new AtomicInteger(0); // 0..100
-        final int EPSILON = 1;  // minimum variation (included) to print progress
-        List<Method> methodsToBenchmark = getAllMethodsWithAnnotationInProject(Benchmark.class);
-        final int NUM_OF_METHODS_TO_BENCHMARK = methodsToBenchmark.size();
-        if (printProgress) {
-            System.out.print("Progress: " + System.lineSeparator() + "\t0%");
-        }
         startTimeOfTests = Instant.now();
-        results = methodsToBenchmark
+        results = getAllClassNames()
                 .stream().sequential()
+                .filter(Objects::nonNull)
+                .flatMap(className -> {
+                            try {
+                                return Arrays.stream(Class.forName(className).getDeclaredMethods())
+                                        .filter(method -> method.isAnnotationPresent(Benchmark.class))
+                                        .peek(method -> method.setAccessible(true));
+                            } catch (ClassNotFoundException ignore) {
+                                return null;
+                            }
+                        }
+                )
+                .filter(Objects::nonNull)
+                .peek(method -> System.out.println("Benchmarking method " + method.getName()))
                 .map(method -> {
                     Throwable eventuallyThrown = null;
                     StringBuilder eventuallyErrorMessage = new StringBuilder();
@@ -309,19 +297,6 @@ public class BenchmarkRunner {
                         return null;
                     }
                 })
-                .peek(ignored -> {
-                            if (printProgress) {
-                                synchronized (currentPercentageOfProgressOfBenchmarks) {
-                                    int oldPercentage = currentPercentageOfProgressOfBenchmarks.get();
-                                    int currentPercentage = (int) Math.round(
-                                            100D * currentNumberOfBenchmarkedMethods.incrementAndGet() / NUM_OF_METHODS_TO_BENCHMARK);
-                                    currentPercentageOfProgressOfBenchmarks.set(currentPercentage);
-                                    if (currentPercentage - oldPercentage >= EPSILON)
-                                        System.out.print(" \t" + currentPercentage + "%");
-                                }
-                            }
-                        }
-                )
                 .filter(Objects::nonNull)
                 .sorted()
                 .collect(Collectors.toList());
