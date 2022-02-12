@@ -11,7 +11,6 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.stream.Collectors;
@@ -122,7 +121,7 @@ public class BenchmarkRunner {
                 logSevereInLoggerOfThisClass(e);
             }
         }
-        return classNames;
+        return classNames.stream().filter(Objects::nonNull).sorted().collect(Collectors.toList());
     }
 
     /**
@@ -158,17 +157,20 @@ public class BenchmarkRunner {
             if (file.getName().endsWith(classExtension) && !file.getName().startsWith("module-info")) {
                 try {
                     final String ESCAPED_FILE_SEPARATOR = "\\" + File.separator;    // correctly escaped
-                    classNames.add(
-                            Class.forName(
-                                    file.getCanonicalPath()
-                                            .substring(rootOfProjectDirectoryOfClasses.length() + 1,
-                                                    file.getCanonicalPath().length() - classExtension.length())
-                                            .replace("target" + File.separator + "classes" + File.separator, "")        // remove folder names till the project classes
-                                            .replace("target" + File.separator + "test-classes" + File.separator, "")   // remove folder names till the project classes
-                                            .replaceAll(ESCAPED_FILE_SEPARATOR, "."),
-                                    false,  // if false: avoid expensive time-consuming class initialization (e.g., static blocks)
-                                    BenchmarkRunner.class.getClassLoader()
-                            ).getCanonicalName());
+                    Class<?> clazz = Class.forName(
+                            file.getCanonicalPath()
+                                    .substring(rootOfProjectDirectoryOfClasses.length() + 1,
+                                            file.getCanonicalPath().length() - classExtension.length())
+                                    .replace("target" + File.separator + "classes" + File.separator, "")        // remove folder names till the project classes
+                                    .replace("target" + File.separator + "test-classes" + File.separator, "")   // remove folder names till the project classes
+                                    .replaceAll(ESCAPED_FILE_SEPARATOR, "."),
+                            false,  // if false: avoid expensive time-consuming class initialization (e.g., static blocks)
+                            BenchmarkRunner.class.getClassLoader()
+                    );
+                    if (Arrays.stream(clazz.getDeclaredMethods())
+                            .anyMatch(method -> method.isAnnotationPresent(Benchmark.class))) {
+                        classNames.add(clazz.getCanonicalName());
+                    }
                 } catch (ClassNotFoundException ignored) {
                 }
             }
@@ -253,7 +255,9 @@ public class BenchmarkRunner {
         startTimeOfTests = Instant.now();
         results = getAllClassNames()
                 .stream().sequential()
-                .filter(Objects::nonNull)
+                .peek(className -> System.out.println(
+                        System.lineSeparator() + System.lineSeparator()
+                                + "Benchmarking class " + className + System.lineSeparator()))
                 .flatMap(className -> {
                             try {
                                 return Arrays.stream(Class.forName(className).getDeclaredMethods())
