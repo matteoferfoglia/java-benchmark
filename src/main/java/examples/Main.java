@@ -6,7 +6,7 @@ import benchmark.BenchmarkRunner;
 /**
  * Class to show how to use the Benchmark framework proposed by this project.
  */
-@SuppressWarnings({"ResultOfMethodCallIgnored", "UnusedReturnValue"})   // illustrative examples
+@SuppressWarnings({"ResultOfMethodCallIgnored", "UnusedReturnValue", "unused"})   // illustrative examples
 public class Main {
 
     /**

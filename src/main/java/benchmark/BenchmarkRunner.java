@@ -251,6 +251,7 @@ public class BenchmarkRunner {
      *
      * @return The list with results.
      */
+    @SuppressWarnings("UnusedReturnValue") // return value might be useful (the method is not used anymore, because results are printed with toString method)
     public List<BenchmarkInstance> benchmarkAllAnnotatedMethodsAndGetListOfResults() {
         startTimeOfTests = Instant.now();
         results = getAllClassNames()

@@ -1,6 +1,6 @@
 package benchmark;
 
-@SuppressWarnings("unused") // dummy methods used for tests
+@SuppressWarnings({"unused", "EmptyMethod"}) // dummy methods used for tests
 class ClassWithDummyMethodsForTestingPurposes {
 
     final static String NAME_OF_PUBLIC_STATIC_METHOD_WITHOUT_PARAMETERS = "publicStaticMethodWithoutParameters";
